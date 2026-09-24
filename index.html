@@ -21,6 +21,8 @@
     --page:#eef3f8;
     --panel:#ffffff;
     --line:#d7e2ec;
+    --gap:26px;   /* khoảng cách giữa các dãy */
+    --ng:3;       /* số dãy — JS ghi đè theo dữ liệu Sheet */
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -75,20 +77,27 @@
   .desk-row.right{justify-content:flex-end}
   .desk-row.center{justify-content:center}
   .desk-row.left{justify-content:flex-start}
+  /* Bàn giáo viên rộng đúng bằng 1 dãy bàn nên luôn thẳng mép với lưới */
   .desk{
     background:var(--orange);border:2px solid var(--orange-border);
     color:#1b2733;font-weight:800;letter-spacing:.5px;
-    font-size:clamp(14px,1.6vw,22px);
-    padding:14px 34px;min-width:min(340px,42vw);text-align:center;
+    font-size:clamp(13px,1.5vw,22px);
+    padding:14px 10px;text-align:center;
+    width:calc((100% - (var(--ng) - 1) * var(--gap)) / var(--ng));
+    box-sizing:border-box;
   }
 
-  .rows{display:flex;gap:26px;align-items:flex-start;flex-wrap:nowrap}
+  .rows{display:flex;gap:var(--gap);align-items:stretch;flex-wrap:nowrap}
+  /* Mỗi dãy nằm trong 1 wrapper — wrapper mới là flex item, phải chia đều ở đây */
+  .col{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
   .group{
-    flex:1 1 0;min-width:0;
+    flex:1 1 auto;
     border:2px solid var(--blue-border);
     display:flex;flex-direction:column;
   }
-  .grow{display:flex}
+  /* flex:1 để khi 1 dãy cao hơn (tên bị xuống dòng) thì các dãy khác giãn đều theo,
+     mép dưới của cả 3 dãy luôn thẳng hàng */
+  .grow{display:flex;flex:1 1 auto}
   .grow + .grow{border-top:2px solid var(--blue-border)}
   .seat{
     flex:1 1 0;min-width:0;
@@ -110,7 +119,7 @@
   }
 
   @media (max-width:760px){
-    .rows{gap:12px}
+    :root{--gap:10px}
     .seat{padding:10px 4px;min-height:46px}
     .board{padding:14px}
     .toolbar{padding:10px}
@@ -172,7 +181,9 @@ const FALLBACK = {
 };
 
 /* ----------------------------------------------------------------- */
-let view = "hs";            // "hs" = học sinh, "gv" = giáo viên
+// Mở sẵn 1 góc nhìn qua URL: ...index.html?view=gv
+let view = /^(gv|giaovien|teacher)$/i.test(
+             new URLSearchParams(location.search).get("view") || "") ? "gv" : "hs";
 let groups = [];            // [ [ [seatA,seatB], ... hàng ... ], ... dãy ... ]
 let deskPos = CONFIG.DESK;  // vị trí bàn giáo viên theo góc nhìn học sinh
 let usingFallback = false;
@@ -364,8 +375,11 @@ function render(){
       ).join("") +
       `</div>`
     ).join("");
-    return `<div><div class="group">${body}</div><div class="group-label">${label}</div></div>`;
+    return `<div class="col"><div class="group">${body}</div><div class="group-label">${label}</div></div>`;
   }).join("");
+
+  // Bàn giáo viên rộng đúng 1 dãy: cần biết tổng số dãy
+  $("board").style.setProperty("--ng", Math.max(1, nGroups));
 
   const total = groups.flat(2).filter(Boolean).length;
   $("legend").textContent =
@@ -445,6 +459,8 @@ async function exportPDF(){
 }
 
 /* --------------------------- Khởi động --------------------------- */
+$("btnHS").classList.toggle("on", view === "hs");
+$("btnGV").classList.toggle("on", view === "gv");
 loadData();
 </script>
 </body>
