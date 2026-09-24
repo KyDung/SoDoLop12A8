@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sơ đồ lớp 12A8</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪑</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --blue-deep:#1f5c99;
+    --blue-dark:#17497a;
+    --blue-border:#2e5f8a;
+    --cell-bg:#ddeefb;
+    --cell-bg2:#eaf5fe;
+    --orange:#f8b183;
+    --orange-border:#d96c1f;
+    --ink:#1b2733;
+    --muted:#6b7b8c;
+    --page:#eef3f8;
+    --panel:#ffffff;
+    --line:#d7e2ec;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--page);
+    color:var(--ink);
+    font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    padding:20px 16px 48px;
+  }
+
+  .wrap{max-width:1280px;margin:0 auto}
+
+  /* ---------- Thanh điều khiển ---------- */
+  .toolbar{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;margin-bottom:18px;
+    box-shadow:0 1px 3px rgba(20,40,60,.06);
+  }
+  .seg{display:flex;background:#e9eff6;border-radius:9px;padding:3px;gap:3px}
+  .seg button{
+    border:0;background:transparent;color:var(--muted);
+    font:600 14px/1 inherit;padding:9px 16px;border-radius:7px;cursor:pointer;
+  }
+  .seg button.on{background:var(--blue-deep);color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .btn{
+    border:1px solid var(--line);background:#fff;color:var(--ink);
+    font:600 14px/1 inherit;padding:10px 15px;border-radius:9px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:7px;text-decoration:none;
+  }
+  .btn:hover{background:#f4f8fc;border-color:#b9cbdc}
+  .btn.primary{background:var(--blue-deep);border-color:var(--blue-deep);color:#fff}
+  .btn.primary:hover{background:var(--blue-dark)}
+  .btn.sheet{background:#0f9d58;border-color:#0f9d58;color:#fff}
+  .btn.sheet:hover{background:#0c7d46}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  .spacer{flex:1 1 auto}
+  .status{font-size:13px;color:var(--muted);white-space:nowrap}
+  .status.err{color:#c0392b;font-weight:600;white-space:normal}
+
+  /* ---------- Khung sơ đồ (vùng được xuất ảnh/PDF) ---------- */
+  .board{
+    background:#fff;border-radius:10px;padding:26px 26px 30px;
+    box-shadow:0 2px 10px rgba(20,40,60,.08);
+  }
+  .board-title{
+    background:var(--blue-deep);color:#fff;border-radius:10px;
+    font-size:clamp(22px,3.4vw,40px);font-weight:800;letter-spacing:.5px;
+    text-align:center;padding:14px 10px;margin:0 0 6px;
+  }
+  .desk-row{display:flex;margin:14px 0}
+  .desk-row.right{justify-content:flex-end}
+  .desk-row.center{justify-content:center}
+  .desk-row.left{justify-content:flex-start}
+  .desk{
+    background:var(--orange);border:2px solid var(--orange-border);
+    color:#1b2733;font-weight:800;letter-spacing:.5px;
+    font-size:clamp(14px,1.6vw,22px);
+    padding:14px 34px;min-width:min(340px,42vw);text-align:center;
+  }
+
+  .rows{display:flex;gap:26px;align-items:flex-start;flex-wrap:nowrap}
+  .group{
+    flex:1 1 0;min-width:0;
+    border:2px solid var(--blue-border);
+    display:flex;flex-direction:column;
+  }
+  .grow{display:flex}
+  .grow + .grow{border-top:2px solid var(--blue-border)}
+  .seat{
+    flex:1 1 0;min-width:0;
+    padding:14px 8px;text-align:center;
+    background:var(--cell-bg);
+    font-size:clamp(11px,1.15vw,17px);line-height:1.3;
+    display:flex;align-items:center;justify-content:center;
+    min-height:58px;word-break:break-word;
+  }
+  .seat + .seat{border-left:2px solid var(--blue-border)}
+  .seat.empty{background:#f4f6f8}
+  .group-label{
+    text-align:center;font-size:12px;font-weight:700;color:var(--muted);
+    padding:6px 0 0;letter-spacing:.4px;
+  }
+
+  .legend{
+    margin-top:16px;font-size:13px;color:var(--muted);text-align:center;
+  }
+
+  @media (max-width:760px){
+    .rows{gap:12px}
+    .seat{padding:10px 4px;min-height:46px}
+    .board{padding:14px}
+    .toolbar{padding:10px}
+    .status{white-space:normal}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="toolbar">
+    <div class="seg" role="tablist">
+      <button id="btnHS" class="on" onclick="setView('hs')">👩‍🎓 Góc nhìn học sinh</button>
+      <button id="btnGV" onclick="setView('gv')">🧑‍🏫 Góc nhìn giáo viên</button>
+    </div>
+    <button class="btn" onclick="loadData(true)">🔄 Tải lại dữ liệu</button>
+    <button class="btn" id="btnPng" onclick="exportPNG()">🖼️ Tải ảnh PNG</button>
+    <button class="btn primary" id="btnPdf" onclick="exportPDF()">📄 Tải PDF</button>
+    <a class="btn sheet" id="lnkSheet" href="#" target="_blank" rel="noopener">📊 Mở Google Sheet</a>
+    <button class="btn" onclick="configSheet()" title="Đổi link Google Sheet">⚙️</button>
+    <div class="spacer"></div>
+    <div class="status" id="status">Đang tải…</div>
+  </div>
+
+  <div class="board" id="board">
+    <h1 class="board-title" id="title">SƠ ĐỒ LỚP 12A8</h1>
+    <div class="desk-row" id="deskTop"><div class="desk">BÀN GIÁO VIÊN</div></div>
+    <div class="rows" id="rows"></div>
+    <div class="desk-row" id="deskBottom"><div class="desk">BÀN GIÁO VIÊN</div></div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+</div>
+
+<script>
+/* =======================================================================
+   CẤU HÌNH — dán ID Google Sheet của bạn vào đây sau khi upload file Excel
+   ID nằm giữa /d/ và /edit trong link:
+   https://docs.google.com/spreadsheets/d/<<< ID Ở ĐÂY >>>/edit
+   ======================================================================= */
+const CONFIG = {
+  SHEET_ID:   "1p1EpjqGQT0Tai5Sdi6LUvem5wtlOI7qfsient6o5wRM",
+  SHEET_NAME: "SoDoLop",   // tên tab trong Google Sheet
+  TITLE:      "SƠ ĐỒ LỚP 12A8",
+  DESK:       "Trên - Phải"  // vị trí bàn giáo viên mặc định (góc nhìn học sinh)
+};
+
+/* Dữ liệu dự phòng: dùng khi chưa cấu hình Sheet hoặc mạng lỗi */
+const FALLBACK = {
+  headers: ["Hàng","Dãy 1 - A","Dãy 1 - B","Dãy 2 - A","Dãy 2 - B","Dãy 3 - A","Dãy 3 - B","Bàn giáo viên"],
+  rows: [
+    ["1","Nguyễn Thị Hoài Anh","Đỗ Trí Thiện","Phạm Hải Đăng","Phan Duy Thuận","Đỗ Tiến Quân","Nguyễn Ngọc Khánh Linh","Trên - Phải"],
+    ["2","Phùng Quốc Việt","Nguyễn Trần Bảo Chi","Trần Phương Linh","Phạm Quỳnh Chi","Nguyễn Thùy Linh","Vũ Đăng Trình",""],
+    ["3","Trần Mạnh Quang","Nguyễn Phạm Mai Anh","Nguyễn Phương Minh Tuệ","Lưu Nguyễn Minh Châu","Đỗ Nguyễn Kim Ngân","Lê Phương Linh",""],
+    ["4","Trần Đăng Khôi","Hoàng Thùy Ngân","Phạm Phú Thái","Nguyễn Thị Phương Linh","Vũ Hoàng Quế Anh","Nguyễn Thị Thanh Ngân",""],
+    ["5","Lê Bảo Anh","","Nguyễn Khánh Linh","Lê Anh Thư","Nguyễn Thị Hoài An","Phùng Duy Anh",""],
+    ["6","","","","","Lê Sỹ Bách","",""]
+  ]
+};
+
+/* ----------------------------------------------------------------- */
+let view = "hs";            // "hs" = học sinh, "gv" = giáo viên
+let groups = [];            // [ [ [seatA,seatB], ... hàng ... ], ... dãy ... ]
+let deskPos = CONFIG.DESK;  // vị trí bàn giáo viên theo góc nhìn học sinh
+let usingFallback = false;
+
+const $ = id => document.getElementById(id);
+
+function sheetId(){
+  const fromUrl = new URLSearchParams(location.search).get("sheet");
+  if (fromUrl) return fromUrl.trim();
+  return (localStorage.getItem("sodo_sheet_id") || CONFIG.SHEET_ID || "").trim();
+}
+function sheetName(){
+  const fromUrl = new URLSearchParams(location.search).get("tab");
+  return (fromUrl || localStorage.getItem("sodo_sheet_tab") || CONFIG.SHEET_NAME).trim();
+}
+function sheetUrl(){
+  const id = sheetId();
+  return id ? `https://docs.google.com/spreadsheets/d/${id}/edit` : "";
+}
+function gvizUrl(){
+  return `https://docs.google.com/spreadsheets/d/${sheetId()}/gviz/tq`
+       + `?tqx=out:json&sheet=${encodeURIComponent(sheetName())}&t=${Date.now()}`;
+}
+
+function configSheet(){
+  const cur = sheetId();
+  const input = prompt(
+    "Dán LINK hoặc ID Google Sheet:\n\n" +
+    "Sheet phải được chia sẻ ở chế độ \"Bất kỳ ai có liên kết — Người xem\".\n" +
+    "Để trống rồi OK để xoá cấu hình.", cur);
+  if (input === null) return;
+  const v = input.trim();
+  if (!v){ localStorage.removeItem("sodo_sheet_id"); loadData(true); return; }
+  const m = v.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  localStorage.setItem("sodo_sheet_id", m ? m[1] : v);
+  loadData(true);
+}
+
+/* --------------------------- Đọc dữ liệu --------------------------- */
+async function loadData(force){
+  const id = sheetId();
+  $("lnkSheet").href = sheetUrl() || "#";
+  $("lnkSheet").style.display = id ? "" : "none";
+
+  if (!id){
+    usingFallback = true;
+    deskPos = readDesk(FALLBACK.headers, FALLBACK.rows);
+    buildGroups(FALLBACK.headers, FALLBACK.rows);
+    setStatus("Chưa cấu hình Google Sheet — đang dùng dữ liệu mẫu. Bấm ⚙️ để thêm link.", true);
+    render();
+    return;
+  }
+
+  setStatus("Đang tải dữ liệu từ Google Sheet…");
+  try{
+    const res = await fetch(gvizUrl(), {cache:"no-store"});
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const text = await res.text();
+    const json = parseGviz(text);
+    const headers = json.table.cols.map(c => (c.label || c.id || "").trim());
+    const rows = json.table.rows.map(r =>
+      (r.c || []).map(c => c && c.v != null ? String(c.f ?? c.v).trim() : "")
+    );
+    deskPos = readDesk(headers, rows);
+    buildGroups(headers, rows);
+    usingFallback = false;
+    render();
+    setStatus("✅ Cập nhật lúc " + new Date().toLocaleTimeString("vi-VN"));
+  }catch(err){
+    usingFallback = true;
+    deskPos = readDesk(FALLBACK.headers, FALLBACK.rows);
+    buildGroups(FALLBACK.headers, FALLBACK.rows);
+    render();
+    setStatus("⚠️ Không đọc được Sheet (" + err.message + "). Đang hiển thị dữ liệu dự phòng. "
+            + "Kiểm tra quyền chia sẻ \"Bất kỳ ai có liên kết\" và tên tab \"" + sheetName() + "\".", true);
+  }
+}
+
+function parseGviz(text){
+  const s = text.indexOf("{"), e = text.lastIndexOf("}");
+  if (s < 0 || e < 0) throw new Error("phản hồi không hợp lệ");
+  return JSON.parse(text.slice(s, e + 1));
+}
+
+/* Đọc vị trí bàn giáo viên từ cột "Bàn giáo viên" (lấy ô đầu tiên có giá trị) */
+function readDesk(headers, rows){
+  const i = headers.findIndex(h => /b[àa]n\s*gi[áa]o\s*vi[êe]n/i.test(h));
+  if (i < 0) return CONFIG.DESK;
+  for (const r of rows){
+    const v = (r[i] || "").trim();
+    if (v) return v;
+  }
+  return CONFIG.DESK;
+}
+
+/* Bỏ dấu tiếng Việt để so khớp không phụ thuộc cách gõ */
+function noAccent(s){
+  return String(s).normalize("NFD").replace(/[̀-ͯ]/g, "")
+                  .replace(/đ/gi, "d").toLowerCase();
+}
+
+/* "Trên - Phải" -> {v:"top", h:"right"}; góc nhìn giáo viên xoay 180° cả 2 trục */
+function deskLayout(){
+  const s = noAccent(deskPos);
+  let v = /(duoi|bottom|sau|cuoi)/.test(s) ? "bottom" : "top";
+  let h = /(phai|right)/.test(s) ? "right"
+        : /(trai|left)/.test(s)  ? "left"
+        : "center";
+  if (view === "gv"){
+    v = v === "top" ? "bottom" : "top";
+    h = h === "right" ? "left" : h === "left" ? "right" : "center";
+  }
+  return { v, h };
+}
+
+/* Gom các cột "Dãy N - X" thành cấu trúc dãy / hàng / chỗ ngồi */
+function buildGroups(headers, rows){
+  const map = new Map();   // số dãy -> [{idx, key}]
+  headers.forEach((h, i) => {
+    const m = h.match(/D[ãa]y\s*(\d+)\s*[-–]\s*(.+)/i);
+    if (!m) return;
+    const n = parseInt(m[1], 10);
+    if (!map.has(n)) map.set(n, []);
+    map.get(n).push({ idx: i, key: m[2].trim() });
+  });
+
+  // Không khớp mẫu "Dãy N - X"? Coi mọi cột (trừ cột đầu) là chỗ ngồi, cứ 2 cột một dãy.
+  if (map.size === 0){
+    const cols = headers
+      .map((h, i) => ({h, i}))
+      .filter(c => c.i > 0 && c.h && !/b[àa]n\s*gi[áa]o\s*vi[êe]n/i.test(c.h))
+      .map(c => c.i);
+    for (let i = 0; i < cols.length; i += 2){
+      const n = i / 2 + 1;
+      map.set(n, [{idx: cols[i], key:"A"}].concat(
+        cols[i+1] != null ? [{idx: cols[i+1], key:"B"}] : []));
+    }
+  }
+
+  const order = [...map.keys()].sort((a,b) => a - b);
+  groups = order.map(n => {
+    const cols = map.get(n).sort((a,b) => a.key.localeCompare(b.key, "vi"));
+    return rows.map(r => cols.map(c => (r[c.idx] || "").trim()));
+  });
+
+  // Bỏ các hàng cuối trống hoàn toàn trên MỌI dãy
+  let last = -1;
+  const nRows = Math.max(0, ...groups.map(g => g.length));
+  for (let r = 0; r < nRows; r++){
+    if (groups.some(g => (g[r] || []).some(v => v))) last = r;
+  }
+  groups = groups.map(g => g.slice(0, last + 1));
+}
+
+/* --------------------------- Hiển thị --------------------------- */
+function setView(v){
+  view = v;
+  $("btnHS").classList.toggle("on", v === "hs");
+  $("btnGV").classList.toggle("on", v === "gv");
+  render();
+}
+
+/* Góc nhìn giáo viên = xoay 180°: đảo thứ tự dãy, đảo hàng, đảo 2 chỗ trong mỗi bàn */
+function viewData(){
+  if (view === "hs") return groups;
+  return groups.slice().reverse()
+    .map(g => g.slice().reverse().map(seat => seat.slice().reverse()));
+}
+
+function render(){
+  $("title").textContent = CONFIG.TITLE;
+  const data = viewData();
+  const nGroups = groups.length;
+
+  // Bàn giáo viên: đặt trên/dưới lưới và canh trái/giữa/phải theo cấu hình trong Sheet
+  const d = deskLayout();
+  const top = $("deskTop"), bottom = $("deskBottom");
+  top.style.display    = d.v === "top"    ? "" : "none";
+  bottom.style.display = d.v === "bottom" ? "" : "none";
+  top.className = bottom.className = "desk-row " + d.h;
+
+  $("rows").innerHTML = data.map((g, gi) => {
+    // nhãn dãy theo đánh số gốc (góc nhìn học sinh)
+    const label = "Dãy " + (view === "hs" ? gi + 1 : nGroups - gi);
+    const body = g.map(seat =>
+      `<div class="grow">` +
+      seat.map(name =>
+        `<div class="seat${name ? "" : " empty"}">${escapeHtml(name)}</div>`
+      ).join("") +
+      `</div>`
+    ).join("");
+    return `<div><div class="group">${body}</div><div class="group-label">${label}</div></div>`;
+  }).join("");
+
+  const total = groups.flat(2).filter(Boolean).length;
+  $("legend").textContent =
+    (view === "hs"
+      ? "Góc nhìn học sinh — nhìn từ chỗ ngồi hướng lên bảng."
+      : "Góc nhìn giáo viên — nhìn từ bục giảng xuống lớp (tự động xoay 180°).")
+    + `  •  Tổng số học sinh: ${total}`
+    + `  •  Bàn giáo viên: ${deskLabel()}`
+    + (usingFallback ? "  •  (dữ liệu mẫu)" : "");
+}
+
+function deskLabel(){
+  const d = deskLayout();
+  const v = d.v === "top" ? "phía trên" : "phía dưới";
+  const h = d.h === "left" ? "bên trái" : d.h === "right" ? "bên phải" : "ở giữa";
+  return `${v}, ${h}`;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function setStatus(msg, isErr){
+  const el = $("status");
+  el.textContent = msg;
+  el.className = "status" + (isErr ? " err" : "");
+}
+
+/* --------------------------- Xuất ảnh / PDF --------------------------- */
+function fileName(ext){
+  const v = view === "hs" ? "HocSinh" : "GiaoVien";
+  const d = new Date().toISOString().slice(0,10);
+  return `SoDoLop12A8-${v}-${d}.${ext}`;
+}
+
+async function capture(){
+  return await html2canvas($("board"), {
+    scale: 2,
+    backgroundColor: "#ffffff",
+    useCORS: true,
+    logging: false
+  });
+}
+
+async function exportPNG(){
+  const btn = $("btnPng"); btn.disabled = true; const t = btn.textContent;
+  btn.textContent = "Đang tạo ảnh…";
+  try{
+    const canvas = await capture();
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = fileName("png");
+    a.click();
+  }catch(e){ alert("Không tạo được ảnh: " + e.message); }
+  finally{ btn.disabled = false; btn.textContent = t; }
+}
+
+async function exportPDF(){
+  const btn = $("btnPdf"); btn.disabled = true; const t = btn.textContent;
+  btn.textContent = "Đang tạo PDF…";
+  try{
+    const canvas = await capture();
+    const img = canvas.toDataURL("image/png");
+    const { jsPDF } = window.jspdf;
+    const landscape = canvas.width >= canvas.height;
+    const pdf = new jsPDF({ orientation: landscape ? "landscape" : "portrait", unit: "mm", format: "a4" });
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    const m = 8;
+    const ratio = Math.min((pw - m*2) / canvas.width, (ph - m*2) / canvas.height);
+    const w = canvas.width * ratio, h = canvas.height * ratio;
+    pdf.addImage(img, "PNG", (pw - w) / 2, (ph - h) / 2, w, h);
+    pdf.save(fileName("pdf"));
+  }catch(e){ alert("Không tạo được PDF: " + e.message); }
+  finally{ btn.disabled = false; btn.textContent = t; }
+}
+
+/* --------------------------- Khởi động --------------------------- */
+loadData();
+</script>
+</body>
+</html>
