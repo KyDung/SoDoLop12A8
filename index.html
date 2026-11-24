@@ -101,12 +101,15 @@
   .grow + .grow{border-top:2px solid var(--blue-border)}
   .seat{
     flex:1 1 0;min-width:0;
-    padding:14px 8px;text-align:center;
+    padding:10px 8px;text-align:center;
     background:var(--cell-bg);
     font-size:clamp(11px,1.15vw,17px);line-height:1.3;
     display:flex;align-items:center;justify-content:center;
-    min-height:58px;word-break:break-word;
+    word-break:break-word;
+    /* Khóa chiều cao = đúng 2 dòng chữ: mọi ô bằng nhau dù tên ngắn hay dài (tối đa 2 dòng) */
+    height:calc(2.6em + 20px);overflow:hidden;
   }
+  .seat .nm{display:block;max-height:2.6em;overflow:hidden}
   .seat + .seat{border-left:2px solid var(--blue-border)}
   .seat.empty{background:#f4f6f8}
   .group-label{
@@ -138,7 +141,9 @@
 
   @media (max-width:760px){
     :root{--gap:10px}
-    .seat{padding:10px 4px;min-height:46px}
+    /* Màn hình điện thoại hẹp: cho ô giãn theo tên để đọc đủ (bản xuất PDF/PNG vẫn khóa 2 dòng) */
+    .seat{padding:10px 4px;height:auto;min-height:46px;overflow:visible}
+    .seat .nm{max-height:none;overflow:visible}
     .board{padding:14px}
     .toolbar{padding:10px}
     .status{white-space:normal}
@@ -347,7 +352,7 @@ function render(){
       return `<div class="grow">` +
       seat.map((name, si) => {
         const os = view === "hs" ? si : seat.length - 1 - si;
-        return `<div class="seat${name ? "" : " empty"}" data-g="${og}" data-r="${or}" data-s="${os}">${escapeHtml(name)}</div>`;
+        return `<div class="seat${name ? "" : " empty"}" data-g="${og}" data-r="${or}" data-s="${os}"><span class="nm">${escapeHtml(name)}</span></div>`;
       }).join("") +
       `</div>`;
     }).join("");
