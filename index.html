@@ -114,6 +114,24 @@
     padding:6px 0 0;letter-spacing:.4px;
   }
 
+  /* ---------- Kéo thả đổi chỗ ---------- */
+  .seat{position:relative;cursor:grab;-webkit-user-select:none;user-select:none;
+        -webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+  .seat.pressing{background:#cfe4f7;transition:background .15s}
+  .seat.dragging{opacity:.35}
+  .seat.target{background:#ffe9a8 !important;outline:3px solid var(--orange-border);outline-offset:-3px;z-index:1}
+  .ghost{
+    position:fixed;z-index:9999;pointer-events:none;
+    background:var(--orange);border:2px solid var(--orange-border);border-radius:8px;
+    padding:10px 14px;font-weight:700;font-size:15px;max-width:60vw;text-align:center;
+    box-shadow:0 8px 24px rgba(0,0,0,.3);transform:translate(-50%,-120%);
+  }
+  body.is-dragging{cursor:grabbing;-webkit-user-select:none;user-select:none}
+  .hint{margin-top:10px;font-size:13px;color:var(--muted);text-align:center}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1b2733;color:#fff;
+    padding:10px 16px;border-radius:9px;font-size:14px;z-index:10000;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+  .toast.show{opacity:1}
+
   .legend{
     margin-top:16px;font-size:13px;color:var(--muted);text-align:center;
   }
@@ -136,6 +154,8 @@
       <button id="btnGV" onclick="setView('gv')">🧑‍🏫 Góc nhìn giáo viên</button>
     </div>
     <button class="btn" onclick="loadData(true)">🔄 Tải lại dữ liệu</button>
+    <button class="btn" id="btnUndo" onclick="undoSwap()" disabled>↩️ Hoàn tác</button>
+    <button class="btn" id="btnReset" onclick="resetSwaps()" disabled>♻️ Đặt lại chỗ</button>
     <button class="btn" id="btnPng" onclick="exportPNG()">🖼️ Tải ảnh PNG</button>
     <button class="btn primary" id="btnPdf" onclick="exportPDF()">📄 Tải PDF</button>
     <a class="btn sheet" id="lnkSheet" href="#" target="_blank" rel="noopener">📊 Mở Google Sheet</a>
@@ -152,6 +172,8 @@
   </div>
 
   <div class="legend" id="legend"></div>
+  <div class="hint">👆 Kéo thả (điện thoại: <b>giữ ~0,3 giây rồi kéo</b>) một học sinh sang ô khác để đổi chỗ. Thay đổi lưu trên máy này, không ghi vào Google Sheet.</div>
+  <div class="toast" id="toast"></div>
 </div>
 
 <script>
@@ -336,6 +358,7 @@ function buildGroups(headers, rows){
     if (groups.some(g => (g[r] || []).some(v => v))) last = r;
   }
   groups = groups.map(g => g.slice(0, last + 1));
+  applySwaps();
 }
 
 /* --------------------------- Hiển thị --------------------------- */
@@ -368,13 +391,16 @@ function render(){
   $("rows").innerHTML = data.map((g, gi) => {
     // nhãn dãy theo đánh số gốc (góc nhìn học sinh)
     const label = "Dãy " + (view === "hs" ? gi + 1 : nGroups - gi);
-    const body = g.map(seat =>
-      `<div class="grow">` +
-      seat.map(name =>
-        `<div class="seat${name ? "" : " empty"}">${escapeHtml(name)}</div>`
-      ).join("") +
-      `</div>`
-    ).join("");
+    const og = view === "hs" ? gi : nGroups - 1 - gi;   // chỉ số dãy gốc
+    const body = g.map((seat, ri) => {
+      const or = view === "hs" ? ri : g.length - 1 - ri;
+      return `<div class="grow">` +
+      seat.map((name, si) => {
+        const os = view === "hs" ? si : seat.length - 1 - si;
+        return `<div class="seat${name ? "" : " empty"}" data-g="${og}" data-r="${or}" data-s="${os}">${escapeHtml(name)}</div>`;
+      }).join("") +
+      `</div>`;
+    }).join("");
     return `<div class="col"><div class="group">${body}</div><div class="group-label">${label}</div></div>`;
   }).join("");
 
@@ -389,6 +415,7 @@ function render(){
     + `  •  Tổng số học sinh: ${total}`
     + `  •  Bàn giáo viên: ${deskLabel()}`
     + (usingFallback ? "  •  (dữ liệu mẫu)" : "");
+  updateSwapButtons();
 }
 
 function deskLabel(){
@@ -417,11 +444,29 @@ function fileName(ext){
 }
 
 async function capture(){
+  // Khóa cứng bố cục: luôn dựng như màn hình máy tính rộng EXPORT_W px,
+  // bất kể thiết bị -> ảnh/PDF trên điện thoại giống hệt trên máy tính.
+  const EXPORT_W = 1280;
   return await html2canvas($("board"), {
     scale: 2,
     backgroundColor: "#ffffff",
     useCORS: true,
-    logging: false
+    logging: false,
+    windowWidth: EXPORT_W + 80,
+    width: EXPORT_W,
+    scrollX: 0, scrollY: 0,
+    onclone: (doc) => {
+      const b = doc.getElementById("board");
+      doc.body.style.padding = "0";
+      doc.body.style.margin = "0";
+      const w = doc.querySelector(".wrap");
+      w.style.maxWidth = "none"; w.style.margin = "0"; w.style.width = EXPORT_W + "px";
+      b.style.width = EXPORT_W + "px"; b.style.maxWidth = "none"; b.style.margin = "0";
+      b.style.boxShadow = "none"; b.style.borderRadius = "0";
+      b.style.padding = "26px 26px 30px";
+      doc.querySelectorAll(".seat").forEach(e => e.classList.remove("target","dragging","pressing"));
+      doc.querySelectorAll(".ghost").forEach(e => e.remove());
+    }
   });
 }
 
@@ -445,8 +490,8 @@ async function exportPDF(){
     const canvas = await capture();
     const img = canvas.toDataURL("image/png");
     const { jsPDF } = window.jspdf;
-    const landscape = canvas.width >= canvas.height;
-    const pdf = new jsPDF({ orientation: landscape ? "landscape" : "portrait", unit: "mm", format: "a4" });
+    // Luôn khổ A4 ngang, căn giữa, giữ nguyên tỉ lệ -> in ra đồng nhất trên mọi thiết bị
+    const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
     const m = 8;
@@ -457,6 +502,139 @@ async function exportPDF(){
   }catch(e){ alert("Không tạo được PDF: " + e.message); }
   finally{ btn.disabled = false; btn.textContent = t; }
 }
+
+
+/* --------------------------- Kéo thả đổi chỗ --------------------------- */
+const swapKey = () => "sodo_swaps_" + (sheetId() || "fallback") + "_" + sheetName();
+let swaps = [];   // các lần đổi: [[g,r,s],[g,r,s]] theo chỉ số gốc (góc nhìn học sinh)
+
+function saveSwaps(){
+  try{ localStorage.setItem(swapKey(), JSON.stringify(swaps)); }catch(e){}
+}
+function doSwap(a, b){
+  const sa = groups[a[0]] && groups[a[0]][a[1]], sb = groups[b[0]] && groups[b[0]][b[1]];
+  if (!sa || !sb || sa[a[2]] === undefined || sb[b[2]] === undefined) return false;
+  const t = sa[a[2]]; sa[a[2]] = sb[b[2]]; sb[b[2]] = t;
+  return true;
+}
+function applySwaps(){
+  try{ swaps = JSON.parse(localStorage.getItem(swapKey()) || "[]"); }catch(e){ swaps = []; }
+  swaps = swaps.filter(p => doSwap(p[0], p[1]));
+}
+function updateSwapButtons(){
+  $("btnUndo").disabled = $("btnReset").disabled = swaps.length === 0;
+}
+function undoSwap(){
+  const p = swaps.pop();
+  if (!p) return;
+  doSwap(p[0], p[1]); saveSwaps(); render(); toast("Đã hoàn tác");
+}
+function resetSwaps(){
+  if (!swaps.length || !confirm("Đưa tất cả học sinh về chỗ gốc theo Google Sheet?")) return;
+  while (swaps.length){ const p = swaps.pop(); doSwap(p[0], p[1]); }
+  saveSwaps(); render(); toast("Đã đặt lại");
+}
+let toastTimer;
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+(function setupDrag(){
+  const board = $("board");
+  const HOLD_MS = 300, MOVE_PX = 6;
+  let st = null;
+  let scrollRAF = 0, lastX = 0, lastY = 0;
+
+  const coord = el => [+el.dataset.g, +el.dataset.r, +el.dataset.s];
+  const clear = () => document.querySelectorAll(".seat.target").forEach(e => e.classList.remove("target"));
+
+  function begin(){
+    if (!st || st.active) return;
+    st.active = true;
+    st.el.classList.remove("pressing");
+    st.el.classList.add("dragging");
+    document.body.classList.add("is-dragging");
+    const g = document.createElement("div");
+    g.className = "ghost";
+    g.textContent = st.el.textContent.trim() || "(ô trống)";
+    document.body.appendChild(g);
+    st.ghost = g;
+    if (navigator.vibrate) try{ navigator.vibrate(15); }catch(e){}
+    move(lastX, lastY);
+    autoScroll();
+  }
+  function move(x, y){
+    if (!st || !st.active) return;
+    st.ghost.style.left = x + "px"; st.ghost.style.top = y + "px";
+    const t = document.elementFromPoint(x, y);
+    const over = t && t.closest ? t.closest(".seat") : null;
+    clear();
+    st.over = over && over !== st.el && board.contains(over) ? over : null;
+    if (st.over) st.over.classList.add("target");
+  }
+  function autoScroll(){
+    cancelAnimationFrame(scrollRAF);
+    const loop = () => {
+      if (!st || !st.active) return;
+      const edge = 70, h = window.innerHeight;
+      let dy = 0;
+      if (lastY < edge) dy = -Math.ceil((edge - lastY) / 5);
+      else if (lastY > h - edge) dy = Math.ceil((lastY - (h - edge)) / 5);
+      if (dy){ window.scrollBy(0, dy); move(lastX, lastY); }
+      scrollRAF = requestAnimationFrame(loop);
+    };
+    scrollRAF = requestAnimationFrame(loop);
+  }
+  function end(drop){
+    if (!st) return;
+    clearTimeout(st.timer);
+    cancelAnimationFrame(scrollRAF);
+    const s = st; st = null;
+    s.el.classList.remove("pressing","dragging");
+    document.body.classList.remove("is-dragging");
+    if (s.ghost) s.ghost.remove();
+    clear();
+    if (s.active && drop && s.over){
+      const a = coord(s.el), b = coord(s.over);
+      if (doSwap(a, b)){
+        swaps.push([a, b]); saveSwaps(); render();
+        toast("Đã đổi chỗ");
+      }
+    }
+  }
+
+  board.addEventListener("pointerdown", e => {
+    const el = e.target.closest(".seat");
+    if (!el || st || (e.pointerType === "mouse" && e.button !== 0)) return;
+    const touch = e.pointerType !== "mouse";
+    st = { el, id: e.pointerId, x0: e.clientX, y0: e.clientY, touch, active: false };
+    lastX = e.clientX; lastY = e.clientY;
+    if (touch){
+      // chạm: giữ lâu mới kéo, để vuốt nhanh vẫn cuộn trang bình thường
+      el.classList.add("pressing");
+      st.timer = setTimeout(begin, HOLD_MS);
+    }
+  });
+  window.addEventListener("pointermove", e => {
+    if (!st || e.pointerId !== st.id) return;
+    lastX = e.clientX; lastY = e.clientY;
+    if (!st.active){
+      const moved = Math.hypot(e.clientX - st.x0, e.clientY - st.y0);
+      if (st.touch){ if (moved > 10) end(false); }
+      else if (moved > MOVE_PX) begin();
+      return;
+    }
+    e.preventDefault();
+    move(e.clientX, e.clientY);
+  });
+  window.addEventListener("pointerup",     e => { if (st && e.pointerId === st.id) end(true); });
+  window.addEventListener("pointercancel", e => { if (st && e.pointerId === st.id) end(false); });
+  // Đang kéo trên điện thoại: chặn trình duyệt cuộn trang
+  window.addEventListener("touchmove", e => { if (st && st.active) e.preventDefault(); }, {passive:false});
+  board.addEventListener("contextmenu", e => { if (e.target.closest(".seat")) e.preventDefault(); });
+  board.addEventListener("dragstart", e => e.preventDefault());
+})();
 
 /* --------------------------- Khởi động --------------------------- */
 $("btnHS").classList.toggle("on", view === "hs");
