@@ -2,7 +2,8 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Khóa bố cục như máy tính: điện thoại hiển thị đúng 1312px rồi tự thu nhỏ vừa màn hình, người dùng zoom để xem rõ -->
+<meta name="viewport" content="width=1312">
 <title>Sơ đồ lớp 12A8</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪑</text></svg>">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -33,9 +34,10 @@
     color:var(--ink);
     font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     padding:20px 16px 48px;
+    min-width:1312px;
   }
 
-  .wrap{max-width:1280px;margin:0 auto}
+  .wrap{width:1280px;margin:0 auto}
 
   /* ---------- Thanh điều khiển ---------- */
   .toolbar{
@@ -70,7 +72,7 @@
   }
   .board-title{
     background:var(--blue-deep);color:#fff;border-radius:10px;
-    font-size:clamp(22px,3.4vw,40px);font-weight:800;letter-spacing:.5px;
+    font-size:40px;font-weight:800;letter-spacing:.5px;
     text-align:center;padding:14px 10px;margin:0 0 6px;
   }
   .desk-row{display:flex;margin:14px 0}
@@ -81,7 +83,7 @@
   .desk{
     background:var(--orange);border:2px solid var(--orange-border);
     color:#1b2733;font-weight:800;letter-spacing:.5px;
-    font-size:clamp(13px,1.5vw,22px);
+    font-size:20px;
     padding:14px 10px;text-align:center;
     width:calc((100% - (var(--ng) - 1) * var(--gap)) / var(--ng));
     box-sizing:border-box;
@@ -103,7 +105,7 @@
     flex:1 1 0;min-width:0;
     padding:10px 8px;text-align:center;
     background:var(--cell-bg);
-    font-size:clamp(11px,1.15vw,17px);line-height:1.3;
+    font-size:15.5px;line-height:1.3;
     display:flex;align-items:center;justify-content:center;
     word-break:break-word;
     /* Khóa chiều cao = đúng 2 dòng chữ: mọi ô bằng nhau dù tên ngắn hay dài (tối đa 2 dòng) */
@@ -139,15 +141,6 @@
     margin-top:16px;font-size:13px;color:var(--muted);text-align:center;
   }
 
-  @media (max-width:760px){
-    :root{--gap:10px}
-    /* Màn hình điện thoại hẹp: cho ô giãn theo tên để đọc đủ (bản xuất PDF/PNG vẫn khóa 2 dòng) */
-    .seat{padding:10px 4px;height:auto;min-height:46px;overflow:visible}
-    .seat .nm{max-height:none;overflow:visible}
-    .board{padding:14px}
-    .toolbar{padding:10px}
-    .status{white-space:normal}
-  }
 </style>
 </head>
 <body>
@@ -483,9 +476,14 @@ function editSeat(el){
   groups[g][r][si] = name;
   render(); saveState();
 }
+/* Trang bị thu nhỏ trên điện thoại -> phóng to nhãn kéo/thông báo bù lại để vẫn đọc được */
+function uiScale(){
+  const vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+  return Math.max(1, (screen.width || vw) / vw);
+}
 let toastTimer;
 function toast(msg){
-  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  const t = $("toast"); t.textContent = msg; t.style.fontSize = (14 * uiScale()) + "px"; t.classList.add("show");
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
 }
 
@@ -507,6 +505,7 @@ function toast(msg){
     const g = document.createElement("div");
     g.className = "ghost";
     g.textContent = st.el.textContent.trim() || "(ô trống)";
+    g.style.fontSize = (15 * uiScale()) + "px";
     document.body.appendChild(g);
     st.ghost = g;
     if (navigator.vibrate) try{ navigator.vibrate(15); }catch(e){}
