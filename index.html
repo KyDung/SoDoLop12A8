@@ -186,7 +186,10 @@ const CONFIG = {
   SHEET_ID:   "1p1EpjqGQT0Tai5Sdi6LUvem5wtlOI7qfsient6o5wRM",
   SHEET_NAME: "SoDoLop",   // tên tab trong Google Sheet
   TITLE:      "SƠ ĐỒ LỚP 12A8",
-  DESK:       "Trên - Phải"  // vị trí bàn giáo viên mặc định (góc nhìn học sinh)
+  DESK:       "Trên - Phải",  // vị trí bàn giáo viên mặc định (góc nhìn học sinh)
+  // Học sinh thêm trực tiếp trên web (chưa có trong Sheet): tự xếp vào ô trống đầu tiên.
+  // Nếu tên đã có trong Sheet thì bỏ qua, nên sau này thêm vào Sheet rồi xoá dòng ở đây cũng được.
+  EXTRA:      ["Đào Anh Vũ"]
 };
 
 /* Dữ liệu dự phòng: dùng khi chưa cấu hình Sheet hoặc mạng lỗi */
@@ -358,7 +361,28 @@ function buildGroups(headers, rows){
     if (groups.some(g => (g[r] || []).some(v => v))) last = r;
   }
   groups = groups.map(g => g.slice(0, last + 1));
+  addExtras();
   applySwaps();
+}
+
+/* Xếp học sinh thêm (CONFIG.EXTRA) vào ô trống đầu tiên, quét theo hàng rồi theo dãy */
+function addExtras(){
+  const present = new Set(groups.flat(2).map(noAccent));
+  for (const name of CONFIG.EXTRA || []){
+    if (present.has(noAccent(name))) continue;
+    let placed = false;
+    const nRows = Math.max(0, ...groups.map(g => g.length));
+    for (let r = 0; r < nRows && !placed; r++)
+      for (const g of groups){
+        const seat = g[r];
+        const i = seat ? seat.indexOf("") : -1;
+        if (i >= 0){ seat[i] = name; placed = true; break; }
+      }
+    if (!placed && groups.length){          // hết ô trống: thêm hàng mới ở dãy đầu
+      groups.forEach((g, gi) => g.push(groups[gi][0].map(() => "")));
+      groups[0][groups[0].length - 1][0] = name;
+    }
+  }
 }
 
 /* --------------------------- Hiển thị --------------------------- */
